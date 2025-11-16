@@ -1,5 +1,7 @@
 const axios = require("axios");
 const Plan = require("../models/Plan");
+const FoodItem = require("../models/FoodItem");
+const Exercise = require("../models/Exercise");
 
 const ML_SERVICE = process.env.ML_SERVICE_URL || "http://localhost:8000";
 
@@ -63,7 +65,31 @@ async function generatePlan(req, res, next) {
     const user = req.user;
     const { plan_type } = req.body || { plan_type: "weekly" };
 
-    // fetch user history (weight log) and profile
+    // 1) Fetch available foods filtered by diet preferences and allergies
+    const foodQuery = {};
+    if (user.diet_pref && user.diet_pref.length > 0) {
+      // match any tag that contains one of the diet preference strings (case-insensitive)
+      foodQuery.tags = { $in: user.diet_pref.map((p) => new RegExp(p, "i")) };
+    }
+    if (user.allergies && user.allergies.length > 0) {
+      const allergyRegex = user.allergies.map((a) => new RegExp(a, "i"));
+      if (foodQuery.tags) {
+        foodQuery.tags.$nin = allergyRegex;
+      } else {
+        foodQuery.tags = { $nin: allergyRegex };
+      }
+    }
+
+    let availableFoods = await FoodItem.find(foodQuery).lean();
+    // If no foods matched the filter, fall back to all foods so the ML can still build a plan
+    if (!availableFoods.length) {
+      availableFoods = await FoodItem.find({}).lean();
+    }
+
+    // 2) Fetch all available exercises
+    const availableExercises = await Exercise.find({}).lean();
+
+    // 3) Build profile and history for ML service
     const profile = {
       age: user.dob
         ? Math.floor(
@@ -84,15 +110,20 @@ async function generatePlan(req, res, next) {
     let mlPlan;
     let planSource = "ml";
     try {
-      // call ML service
+      // call ML service with full context (profile, history, foods, exercises)
       const mlRes = await axios.post(`${ML_SERVICE}/ml/generate_plan`, {
         profile,
         history,
         plan_type,
+        available_foods: availableFoods,
+        available_exercises: availableExercises,
       });
       mlPlan = mlRes.data;
     } catch (mlErr) {
-      console.error("ML service unavailable, using fallback plan", mlErr.message);
+      console.error(
+        "ML service unavailable, using fallback plan",
+        mlErr.message
+      );
       mlPlan = buildFallbackPlan(profile, history, plan_type);
       planSource = "fallback";
     }

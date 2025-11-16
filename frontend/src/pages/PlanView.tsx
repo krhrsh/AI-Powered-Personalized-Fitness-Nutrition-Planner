@@ -45,15 +45,20 @@ export default function PlanView() {
         </p>
       </div>
 
-        <div className="card p-4 mb-4">
-          <h3 className="card-title">Meals</h3>
-        {plan.meals.map((m, idx) => (
+      <div className="card p-4 mb-4">
+        <h3 className="card-title">Meals (Calorie & Macro Breakdown)</h3>
+        {plan.meals.map((m: any, idx: number) => (
           <div key={idx} className="border-b py-2">
-            <h4 className="font-medium">{m.meal_type}</h4>
-            <ul className="list-disc ml-5">
+            <h4 className="font-medium capitalize">{m.meal_type}</h4>
+            <ul className="list-disc ml-5 text-sm text-slate-700">
               {m.items.map((it: any, i: number) => (
                 <li key={i}>
-                  {it.name} — {it.cal} kcal — {it.qty}
+                  <span className="font-medium">{it.name}</span> ({it.qty}) — {it.cal}{" "}
+                  kcal
+                  <span className="ml-3 text-xs text-slate-500">
+                    P: {it.protein_g?.toFixed ? it.protein_g.toFixed(1) : it.protein_g || 0}g, C: {it.carbs_g?.toFixed ? it.carbs_g.toFixed(1) : it.carbs_g || 0}g, F:{" "}
+                    {it.fat_g?.toFixed ? it.fat_g.toFixed(1) : it.fat_g || 0}g
+                  </span>
                 </li>
               ))}
             </ul>
@@ -61,21 +66,25 @@ export default function PlanView() {
         ))}
       </div>
 
-        <div className="card p-4">
-          <h3 className="card-title">Workout</h3>
+      <div className="card p-4">
+        <h3 className="card-title">
+          Workout — Level: {plan.workout.level || "N/A"}
+        </h3>
         {plan.workout.days.map((d: any, idx: number) => (
           <div key={idx} className="border-b py-2">
-            <h4 className="font-medium">{d.day}</h4>
-            <ul className="list-disc ml-5">
+            <h4 className="font-medium">
+              {d.day} {d.focus ? `(Focus: ${d.focus})` : ""}
+            </h4>
+            <ul className="list-disc ml-5 text-sm">
               {d.exercises.map((ex: any, i: number) => (
                 <li key={i}>
-                  {ex.name} — {ex.sets} x {ex.reps}
+                  {ex.name} — {ex.sets} x {ex.reps} (Rest: {ex.rest_s || 0}s)
                 </li>
               ))}
             </ul>
           </div>
         ))}
-        </div>
+      </div>
       </div>
     </div>
   );
